@@ -11,6 +11,8 @@ import { App, Message } from "../../server/src";
 
 type Socket = ReturnType<EdenTreaty.Create<App>["ws"]["subscribe"]>;
 
+console.log(location.host);
+
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");

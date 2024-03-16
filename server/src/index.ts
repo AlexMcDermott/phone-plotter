@@ -1,4 +1,4 @@
-import { Elysia, t, Static } from "elysia";
+import { Elysia, Static, t } from "elysia";
 
 const messageScheme = t.Object({
   timestamp: t.Number(),
