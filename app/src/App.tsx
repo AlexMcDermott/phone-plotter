@@ -1,5 +1,6 @@
 import { edenTreaty } from "@elysiajs/eden";
 import { EdenTreaty } from "@elysiajs/eden/treaty";
+import QRCode from "qrcode";
 import {
   ChangeEventHandler,
   FormEventHandler,
@@ -11,16 +12,20 @@ import { App, Message } from "../../server/src";
 
 type Socket = ReturnType<EdenTreaty.Create<App>["ws"]["subscribe"]>;
 
-console.log(location.host);
-
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [qrCode, setQrCode] = useState<string>();
 
   const ws = useRef<Socket>();
 
   useEffect(() => {
-    const client = edenTreaty<App>("http://localhost:8080");
+    (async () => {
+      const url = `http://${location.host}/`;
+      setQrCode(await QRCode.toDataURL(url));
+    })();
+
+    const client = edenTreaty<App>(`http://${location.hostname}:8080`);
     ws.current = client.ws.subscribe();
 
     ws.current?.subscribe(({ data: newMessage }) => {
@@ -55,7 +60,7 @@ function App() {
   return (
     <>
       <form onSubmit={onSubmit}>
-        <input value={input} onChange={onChange} />
+        <input value={input} onChange={onChange} type="text" />
       </form>
 
       {messages.map(({ timestamp, text, author }) => (
@@ -63,6 +68,8 @@ function App() {
           {author}: {text}
         </div>
       ))}
+
+      {qrCode && <img src={qrCode}></img>}
     </>
   );
 }
