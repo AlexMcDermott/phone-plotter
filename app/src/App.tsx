@@ -1,19 +1,37 @@
-import React, {
+import { edenTreaty } from "@elysiajs/eden";
+import { EdenTreaty } from "@elysiajs/eden/treaty";
+import {
   ChangeEventHandler,
-  FormEvent,
   FormEventHandler,
+  useEffect,
+  useRef,
   useState,
 } from "react";
+import { App, Message } from "../../server/src";
 
-type Message = {
-  timestamp: Date;
-  text: string;
-  author: string;
-};
+type Socket = ReturnType<EdenTreaty.Create<App>["ws"]["subscribe"]>;
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+
+  const ws = useRef<Socket>();
+
+  useEffect(() => {
+    const client = edenTreaty<App>("http://localhost:8080");
+    ws.current = client.ws.subscribe();
+
+    ws.current?.subscribe(({ data: newMessage }) => {
+      console.log("got msg", newMessage);
+      setMessages((oldMessages) => [...oldMessages, newMessage]);
+    });
+
+    return () => {
+      if (ws.current?.ws.readyState === ws.current?.ws.OPEN) {
+        ws.current?.close();
+      }
+    };
+  }, []);
 
   const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
     setInput(e.target.value);
@@ -23,13 +41,12 @@ function App() {
     e.preventDefault();
     if (!input) return;
 
-    const newMessage: Message = {
-      timestamp: new Date(),
+    ws.current?.send({
+      timestamp: Number(new Date()),
       text: input,
       author: "client",
-    };
+    });
 
-    setMessages([...messages, newMessage]);
     setInput("");
   };
 
@@ -40,7 +57,7 @@ function App() {
       </form>
 
       {messages.map(({ timestamp, text, author }) => (
-        <div key={Number(timestamp)}>
+        <div key={timestamp}>
           {author}: {text}
         </div>
       ))}
