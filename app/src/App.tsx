@@ -20,16 +20,31 @@ function App() {
   const ws = useRef<Socket>();
 
   useEffect(() => {
+    const onDeviceMotion = (event: DeviceMotionEvent) => {
+      alert("motion");
+      alert(JSON.stringify(event.acceleration));
+      ws.current?.send({
+        timestamp: Number(new Date()),
+        text: JSON.stringify(event.acceleration),
+        author: "client",
+      });
+    };
+
+    window.addEventListener("devicemotion", onDeviceMotion);
+
     (async () => {
       const url = `http://${location.host}/`;
       setQrCode(await QRCode.toDataURL(url));
     })();
 
-    const client = edenTreaty<App>(`http://${location.hostname}:8080`);
+    const client = edenTreaty<App>(`${location.href}:8080`);
+
+    console.log(location);
     ws.current = client.ws.subscribe();
 
+    ws.current.on("error", (e) => console.log(e));
+
     ws.current?.subscribe(({ data: newMessage }) => {
-      console.log("got msg", newMessage);
       setMessages((oldMessages) => [...oldMessages, newMessage]);
     });
 
@@ -37,6 +52,8 @@ function App() {
       if (ws.current?.ws.readyState === ws.current?.ws.OPEN) {
         ws.current?.close();
       }
+
+      window.removeEventListener("devicemotion", onDeviceMotion);
     };
   }, []);
 
@@ -57,8 +74,18 @@ function App() {
     setInput("");
   };
 
+  const onClick = async () => {
+    try {
+      DeviceOrientationEvent.requestPermission();
+    } catch {
+      console.log("yarn't on iOS son");
+    }
+  };
+
   return (
     <>
+      <button onClick={onClick}>Start</button>
+
       <form onSubmit={onSubmit}>
         <input value={input} onChange={onChange} type="text" />
       </form>

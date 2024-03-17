@@ -13,12 +13,13 @@ const app = new Elysia()
     body: messageScheme,
     response: messageScheme,
     message: (ws, message) => {
+      console.log(JSON.stringify(message));
       ws.send(message);
-      ws.send({
-        timestamp: Number(Date.now()),
-        text: message.text.toLocaleUpperCase(),
-        author: "server",
-      });
+      // ws.send({
+      //   timestamp: Number(Date.now()),
+      //   text: message.text.toLocaleUpperCase(),
+      //   author: "server",
+      // });
     },
     open: (ws) => {
       console.log(`client connected: ${ws.id}`);
