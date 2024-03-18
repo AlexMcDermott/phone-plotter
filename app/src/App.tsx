@@ -34,8 +34,7 @@ function App() {
     // window.addEventListener("devicemotion", onDeviceMotion);
 
     (async () => {
-      const url = `http://${location.host}/`;
-      setQrCode(await QRCode.toDataURL(url));
+      setQrCode(await QRCode.toDataURL(location.href));
     })();
 
     socket.current = io(`${location.hostname}:${8080}`);
@@ -64,8 +63,7 @@ function App() {
     if (!input) return;
 
     socket.current?.emit("message", {
-      text: input,
-      author: "client",
+      data: input,
     });
 
     setInput("");
@@ -87,12 +85,8 @@ function App() {
         <input value={input} onChange={onChange} type="text" />
       </form>
 
-      {messages.map(({ timestamp, text, author }) => {
-        return (
-          <div key={timestamp}>
-            {author}: {text}
-          </div>
-        );
+      {messages.map(({ timestamp, data }) => {
+        return <div key={timestamp}>{data}</div>;
       })}
 
       {qrCode && <img src={qrCode}></img>}

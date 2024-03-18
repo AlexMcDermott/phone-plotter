@@ -16,8 +16,7 @@ type InterServerEvents = {};
 
 export type SocketData = {
   timestamp: string;
-  text: string;
-  author: string;
+  data: string;
 };
 
 const app = express();
@@ -35,7 +34,7 @@ const io = new Server<
   },
 });
 
-const messages: SocketData[] = [];
+const history: SocketData[] = [];
 
 const logActiveConnections = async (io: Server<any>, ...args: any[]) => {
   const sockets = await io.fetchSockets();
@@ -45,16 +44,15 @@ const logActiveConnections = async (io: Server<any>, ...args: any[]) => {
 io.on("connection", async (socket) => {
   logActiveConnections(io, `(${socket.id} joined)`);
 
-  socket.emit("catchup", messages);
+  socket.emit("catchup", history);
 
   socket.on("message", (data) => {
-    console.log("got da msg:", data.text);
     const message: SocketData = {
       ...data,
       timestamp: new Date().toISOString(),
     };
 
-    messages.push(message);
+    history.push(message);
     io.emit("message", message);
   });
 
@@ -64,5 +62,5 @@ io.on("connection", async (socket) => {
 });
 
 server.listen(8080, () => {
-  console.log("she up bb ⬆️");
+  console.log(`server up`);
 });
