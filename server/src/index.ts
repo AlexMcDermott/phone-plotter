@@ -18,9 +18,7 @@ type InterServerEvents = {};
 
 export type SocketData = {
   t: number;
-  data: {
-    acceleration: DeviceMotionEventAcceleration;
-  };
+  acceleration: DeviceMotionEventAcceleration;
 };
 
 const app = express();
@@ -54,7 +52,7 @@ const logActiveConnections = async (io: Server<any>, ...args: any[]) => {
 io.on("connection", async (socket) => {
   logActiveConnections(io, `(${socket.id} joined)`);
 
-  socket.emit("catchup", history);
+  // socket.emit("catchup", history);
 
   socket.on("message", (data) => {
     const message: SocketData = {
@@ -63,7 +61,6 @@ io.on("connection", async (socket) => {
     };
 
     history.push(message);
-    history.splice(-100);
     io.emit("message", message);
   });
 
