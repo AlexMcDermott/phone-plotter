@@ -1,3 +1,4 @@
+import "chart.js/auto";
 import QRCode from "qrcode";
 import {
   ChangeEventHandler,
@@ -6,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Chart } from "react-chartjs-2";
 import { Socket, io } from "socket.io-client";
 import type {
   ClientToServerEvents,
@@ -20,19 +22,30 @@ function App() {
 
   const socket = useRef<Socket<ServerToClientEvents, ClientToServerEvents>>();
 
+  const onDeviceMotion = ({ acceleration }: DeviceMotionEvent) => {
+    acceleration &&
+      socket.current?.emit("message", {
+        data: { acceleration },
+      });
+  };
+
+  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
+    setInput(e.target.value);
+  };
+
+  const onSubmit: FormEventHandler<HTMLFormElement> = (e) => {
+    e.preventDefault();
+    if (!input) return;
+
+    setInput("");
+  };
+
+  const onClick = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (DeviceOrientationEvent as any).requestPermission?.();
+  };
+
   useEffect(() => {
-    // const onDeviceMotion = (event: DeviceMotionEvent) => {
-    //   alert("motion");
-    //   alert(JSON.stringify(event.acceleration));
-    //   ws.current?.send({
-    //     timestamp: Number(new Date()),
-    //     text: JSON.stringify(event.acceleration),
-    //     author: "client",
-    //   });
-    // };
-
-    // window.addEventListener("devicemotion", onDeviceMotion);
-
     (async () => {
       setQrCode(await QRCode.toDataURL(location.href));
     })();
@@ -47,50 +60,51 @@ function App() {
       setMessages((oldMessages) => [...oldMessages, newMessage]);
     });
 
+    window.addEventListener("devicemotion", onDeviceMotion);
+
     return () => {
       socket.current?.close();
-
-      // window.removeEventListener("devicemotion", onDeviceMotion);
+      window.removeEventListener("devicemotion", onDeviceMotion);
     };
   }, []);
 
-  const onChange: ChangeEventHandler<HTMLInputElement> = (e) => {
-    setInput(e.target.value);
-  };
-
-  const onSubmit: FormEventHandler<HTMLFormElement> = (e) => {
-    e.preventDefault();
-    if (!input) return;
-
-    socket.current?.emit("message", {
-      data: input,
-    });
-
-    setInput("");
-  };
-
-  // const onClick = async () => {
-  //   try {
-  //     DeviceOrientationEvent.requestPermission();
-  //   } catch {
-  //     console.log("yarn't on iOS son");
-  //   }
-  // };
-
   return (
-    <>
-      {/* <button onClick={onClick}>Start</button> */}
+    <div className="flex flex-col mx-auto gap-2 h-screen justify-center w-fit *:outline bg-blue-500 ">
+      <button onClick={onClick}>Request Device Orientation Permissions</button>
+
+      <a
+        download
+        href={`${location.protocol}//${location.hostname}:8080/certificate.pem`}
+      >
+        Click to Server Certificate
+      </a>
 
       <form onSubmit={onSubmit}>
         <input value={input} onChange={onChange} type="text" />
       </form>
 
-      {messages.map(({ timestamp, data }) => {
-        return <div key={timestamp}>{data}</div>;
-      })}
+      {/* {messages.map(({ t, data }) => {
+        return <div key={t}>{data}</div>;
+      })} */}
 
-      {qrCode && <img src={qrCode}></img>}
-    </>
+      <Chart
+        type="line"
+        data={{
+          labels: messages.map((message) => message.t),
+          datasets: [
+            {
+              label: "My First Dataset",
+              data: messages.map((message) => message.data.acceleration.x),
+              fill: false,
+              borderColor: "rgb(75, 192, 192)",
+              tension: 0.1,
+            },
+          ],
+        }}
+      />
+
+      {qrCode && <img src={qrCode} className="w-1/2"></img>}
+    </div>
   );
 }
 

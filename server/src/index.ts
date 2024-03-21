@@ -1,7 +1,9 @@
 import cors from "cors";
 import express from "express";
-import { createServer } from "http";
+import { createServer } from "https";
 import { Server } from "socket.io";
+import fs from "fs";
+import path from "path";
 
 export type ServerToClientEvents = {
   message: (message: SocketData) => void;
@@ -9,30 +11,38 @@ export type ServerToClientEvents = {
 };
 
 export type ClientToServerEvents = {
-  message: (message: Omit<SocketData, "timestamp">) => void;
+  message: (message: Omit<SocketData, "t">) => void;
 };
 
 type InterServerEvents = {};
 
 export type SocketData = {
-  timestamp: string;
-  data: string;
+  t: number;
+  data: {
+    acceleration: DeviceMotionEventAcceleration;
+  };
 };
 
 const app = express();
 app.use(cors());
 
-const server = createServer(app);
+const keyPath = path.join(__dirname, "../certs/localhost-key.pem");
+const certPath = path.join(__dirname, "../certs/localhost.pem");
+
+const key = fs.readFileSync(keyPath);
+const cert = fs.readFileSync(certPath);
+
+app.get("/certificate.pem", (_req, res) => {
+  res.download(certPath);
+});
+
+const server = createServer({ key, cert }, app);
 const io = new Server<
   ClientToServerEvents,
   ServerToClientEvents,
   InterServerEvents,
   SocketData
->(server, {
-  cors: {
-    origin: true,
-  },
-});
+>(server, { cors: { origin: true } });
 
 const history: SocketData[] = [];
 
@@ -49,10 +59,11 @@ io.on("connection", async (socket) => {
   socket.on("message", (data) => {
     const message: SocketData = {
       ...data,
-      timestamp: new Date().toISOString(),
+      t: performance.now(),
     };
 
     history.push(message);
+    history.splice(-100);
     io.emit("message", message);
   });
 
