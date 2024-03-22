@@ -1,3 +1,5 @@
+import { Box } from "@react-three/drei";
+import { Canvas } from "@react-three/fiber";
 import "chart.js/auto";
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
@@ -8,6 +10,8 @@ import type {
   ServerToClientEvents,
   SocketData,
 } from "../../server/src";
+
+const CERTIFICATE_URL = `${location.protocol}//${location.hostname}:8080/certificate.pem`;
 
 function App() {
   const [messages, setMessages] = useState<SocketData[]>([]);
@@ -48,43 +52,48 @@ function App() {
   }, []);
 
   return (
-    <div className="flex h-screen items-center justify-center">
+    <div className="flex flex-col items-center justify-center gap-2 p-2 *:outline">
       {messages.length ? (
-        <Chart
-          type="line"
-          title="Acceleration"
-          options={{ scales: { y: { min: -20, max: 20 } } }}
-          data={{
-            labels: messages.map((message) => message.t),
-            datasets: [
-              {
-                label: "X",
-                data: messages.map((message) => message.acceleration.x),
-              },
-              {
-                label: "Y",
-                data: messages.map((message) => message.acceleration.y),
-              },
-              {
-                label: "Z",
-                data: messages.map((message) => message.acceleration.z),
-              },
-            ],
-          }}
-        />
+        <>
+          <Canvas>
+            <Box position={[0, 0, 0]} />
+          </Canvas>
+
+          <Chart
+            type="line"
+            title="Acceleration"
+            options={{ scales: { y: { min: -20, max: 20 } } }}
+            data={{
+              labels: messages.map((message) => message.t),
+              datasets: [
+                {
+                  label: "X",
+                  data: messages.map((message) => message.acceleration.x),
+                },
+                {
+                  label: "Y",
+                  data: messages.map((message) => message.acceleration.y),
+                },
+                {
+                  label: "Z",
+                  data: messages.map((message) => message.acceleration.z),
+                },
+              ],
+            }}
+          />
+        </>
       ) : (
-        <div className="flex flex-col items-center gap-2 *:outline">
+        <>
           <button onClick={onClick}>
             Request device orientation permissions
           </button>
-          <a
-            download
-            href={`${location.protocol}//${location.hostname}:8080/certificate.pem`}
-          >
+
+          <a download href={CERTIFICATE_URL}>
             Click to download server certificate
           </a>
+
           <img src={qrCode} className="w-min" />
-        </div>
+        </>
       )}
     </div>
   );
