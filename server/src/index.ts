@@ -6,19 +6,23 @@ import fs from "fs";
 import path from "path";
 
 export type ServerToClientEvents = {
-  message: (message: SocketData) => void;
-  catchup: (messages: SocketData[]) => void;
+  sample: (sample: SocketData) => void;
+  catchup: (samples: SocketData[]) => void;
 };
 
 export type ClientToServerEvents = {
-  message: (message: Omit<SocketData, "t">) => void;
+  sample: (acceleration: DeviceMotionEventAcceleration) => void;
 };
 
 type InterServerEvents = {};
 
+export type Vec3 = [number, number, number];
+
 export type SocketData = {
   t: number;
-  acceleration: DeviceMotionEventAcceleration;
+  acceleration: Vec3;
+  velocity: Vec3;
+  position: Vec3;
 };
 
 const app = express();
@@ -42,7 +46,7 @@ const io = new Server<
   SocketData
 >(server, { cors: { origin: true } });
 
-const history: SocketData[] = [];
+const samples: SocketData[] = [];
 
 const logActiveConnections = async (io: Server<any>, ...args: any[]) => {
   const sockets = await io.fetchSockets();
@@ -54,14 +58,35 @@ io.on("connection", async (socket) => {
 
   // socket.emit("catchup", history);
 
-  socket.on("message", (data) => {
-    const message: SocketData = {
-      ...data,
-      t: performance.now(),
+  socket.on("sample", (data) => {
+    const t = performance.now();
+    let acceleration: Vec3 = [data.x || 0, data.y || 0, data.z || 0];
+    let velocity: Vec3 = [0, 0, 0];
+    let position: Vec3 = [0, 0, 0];
+
+    const previousSample = samples.at(-1);
+    if (previousSample) {
+      const deltaT = t - previousSample.t;
+
+      velocity = previousSample.velocity.map(
+        (v, i) =>
+          v + deltaT * ((previousSample.acceleration[i] + acceleration[i]) / 2)
+      ) as Vec3;
+
+      position = previousSample.position.map(
+        (v, i) => v + deltaT * ((previousSample.velocity[i] + velocity[i]) / 2)
+      ) as Vec3;
+    }
+
+    const newSample: SocketData = {
+      t,
+      acceleration,
+      velocity,
+      position,
     };
 
-    history.push(message);
-    io.emit("message", message);
+    samples.push(newSample);
+    io.emit("sample", newSample);
   });
 
   socket.on("disconnect", () => {

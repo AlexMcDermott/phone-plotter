@@ -9,18 +9,19 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
   SocketData,
+  Vec3,
 } from "../../server/src";
 
 const CERTIFICATE_URL = `${location.protocol}//${location.hostname}:8080/certificate.pem`;
 
 function App() {
-  const [messages, setMessages] = useState<SocketData[]>([]);
+  const [samples, setSamples] = useState<SocketData[]>([]);
   const [qrCode, setQrCode] = useState<string>();
 
   const socket = useRef<Socket<ServerToClientEvents, ClientToServerEvents>>();
 
   const onDeviceMotion = ({ acceleration }: DeviceMotionEvent) => {
-    acceleration && socket.current?.emit("message", { acceleration });
+    acceleration && socket.current?.emit("sample", acceleration);
   };
 
   const onClick = () => {
@@ -35,12 +36,12 @@ function App() {
 
     socket.current = io(`${location.hostname}:${8080}`);
 
-    socket.current.on("catchup", (messages) => {
-      setMessages(messages);
+    socket.current.on("catchup", (samples) => {
+      setSamples(samples);
     });
 
-    socket.current.on("message", (newMessage) => {
-      setMessages((oldMessages) => [...oldMessages, newMessage].slice(-100));
+    socket.current.on("sample", (newSample) => {
+      setSamples((oldSamples) => [...oldSamples, newSample].slice(-100));
     });
 
     window.addEventListener("devicemotion", onDeviceMotion);
@@ -51,39 +52,44 @@ function App() {
     };
   }, []);
 
+  const pos = samples.at(-1)?.position.map((v) => v * 0.00001) as
+    | Vec3
+    | undefined;
+  console.log(pos);
+
   return (
-    <div className="flex flex-col items-center justify-center gap-2 p-2 *:outline">
-      {messages.length ? (
-        <>
+    <div className="flex min-h-screen items-center justify-center bg-red-300 p-2">
+      {samples.length ? (
+        <div className="flex h-full flex-grow flex-col items-center gap-2 bg-blue-400 *:flex-grow *:outline">
           <Canvas>
-            <Box position={[0, 0, 0]} />
+            <Box position={pos} material-color="hotpink" />
+            <Box position={[1, 1, 1]} material-color="green" />
           </Canvas>
 
-          <Chart
-            type="line"
-            title="Acceleration"
-            options={{ scales: { y: { min: -20, max: 20 } } }}
-            data={{
-              labels: messages.map((message) => message.t),
-              datasets: [
-                {
-                  label: "X",
-                  data: messages.map((message) => message.acceleration.x),
+          <div className="w-full">
+            <Chart
+              type="line"
+              title="Acceleration"
+              options={{
+                maintainAspectRatio: false,
+                responsive: true,
+                scales: {
+                  // y: { min: -20, max: 20 },
+                  x: { ticks: { display: false } },
                 },
-                {
-                  label: "Y",
-                  data: messages.map((message) => message.acceleration.y),
-                },
-                {
-                  label: "Z",
-                  data: messages.map((message) => message.acceleration.z),
-                },
-              ],
-            }}
-          />
-        </>
+              }}
+              data={{
+                labels: samples.map((sample) => sample.t),
+                datasets: ["X", "Y", "Z"].map((label, i) => ({
+                  label,
+                  data: samples.map((v) => v.acceleration[i]),
+                })),
+              }}
+            />
+          </div>
+        </div>
       ) : (
-        <>
+        <div className="flex flex-col items-center justify-center gap-2 *:outline">
           <button onClick={onClick}>
             Request device orientation permissions
           </button>
@@ -93,7 +99,7 @@ function App() {
           </a>
 
           <img src={qrCode} className="w-min" />
-        </>
+        </div>
       )}
     </div>
   );
