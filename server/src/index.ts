@@ -19,10 +19,12 @@ type InterServerEvents = {};
 export type Vec3 = [number, number, number];
 
 export type SocketData = {
-  t: number;
-  acceleration: Vec3;
-  velocity: Vec3;
-  position: Vec3;
+  time: number;
+  data: {
+    acceleration: Vec3;
+    velocity: Vec3;
+    position: Vec3;
+  };
 };
 
 const app = express();
@@ -59,30 +61,33 @@ io.on("connection", async (socket) => {
   // socket.emit("catchup", history);
 
   socket.on("sample", (data) => {
-    const t = performance.now();
+    const time = performance.now() / 1000;
     let acceleration: Vec3 = [data.x || 0, data.y || 0, data.z || 0];
     let velocity: Vec3 = [0, 0, 0];
     let position: Vec3 = [0, 0, 0];
 
     const previousSample = samples.at(-1);
     if (previousSample) {
-      const deltaT = t - previousSample.t;
+      const { time: previousTime, data: previousData } = previousSample;
+      const deltaT = time - previousTime;
 
-      velocity = previousSample.velocity.map(
+      velocity = previousData.velocity.map(
         (v, i) =>
-          v + deltaT * ((previousSample.acceleration[i] + acceleration[i]) / 2)
+          v + deltaT * ((previousData.acceleration[i] + acceleration[i]) / 2)
       ) as Vec3;
 
-      position = previousSample.position.map(
-        (v, i) => v + deltaT * ((previousSample.velocity[i] + velocity[i]) / 2)
+      position = previousData.position.map(
+        (v, i) => v + deltaT * ((previousData.velocity[i] + velocity[i]) / 2)
       ) as Vec3;
     }
 
     const newSample: SocketData = {
-      t,
-      acceleration,
-      velocity,
-      position,
+      time,
+      data: {
+        acceleration,
+        velocity,
+        position,
+      },
     };
 
     samples.push(newSample);

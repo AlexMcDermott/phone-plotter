@@ -1,4 +1,4 @@
-import { Box } from "@react-three/drei";
+import { Box, OrbitControls, Stats } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import "chart.js/auto";
 import QRCode from "qrcode";
@@ -9,7 +9,6 @@ import type {
   ClientToServerEvents,
   ServerToClientEvents,
   SocketData,
-  Vec3,
 } from "../../server/src";
 
 const CERTIFICATE_URL = `${location.protocol}//${location.hostname}:8080/certificate.pem`;
@@ -52,24 +51,24 @@ function App() {
     };
   }, []);
 
-  const pos = samples.at(-1)?.position.map((v) => v * 0.00001) as
-    | Vec3
-    | undefined;
-  console.log(pos);
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-red-300 p-2">
+    <div className="flex h-screen items-center justify-center p-2">
       {samples.length ? (
-        <div className="flex h-full flex-grow flex-col items-center gap-2 bg-blue-400 *:flex-grow *:outline">
-          <Canvas>
-            <Box position={pos} material-color="hotpink" />
-            <Box position={[1, 1, 1]} material-color="green" />
+        <div className="flex h-full flex-grow flex-col gap-2">
+          <Canvas camera={{ position: [10, 10, 10] }}>
+            <Box
+              position={samples.at(-1)?.data.position}
+              material-color="green"
+            />
+            <OrbitControls target={[0, 0, 0]} />
+            <gridHelper />
+            <axesHelper args={[10]} />
+            <Stats />
           </Canvas>
 
-          <div className="w-full">
+          <div>
             <Chart
               type="line"
-              title="Acceleration"
               options={{
                 maintainAspectRatio: false,
                 responsive: true,
@@ -79,10 +78,10 @@ function App() {
                 },
               }}
               data={{
-                labels: samples.map((sample) => sample.t),
+                labels: samples.map((sample) => sample.time),
                 datasets: ["X", "Y", "Z"].map((label, i) => ({
                   label,
-                  data: samples.map((v) => v.acceleration[i]),
+                  data: samples.map((v) => v.data.position[i]),
                 })),
               }}
             />
