@@ -11,7 +11,12 @@ export type ServerToClientEvents = {
 };
 
 export type ClientToServerEvents = {
-  sample: (acceleration: DeviceMotionEventAcceleration) => void;
+  sample: (data: {
+    acceleration: DeviceMotionEventAcceleration | null;
+    rotationRate: DeviceMotionEventRotationRate | null;
+    interval: number;
+    timeStamp: number;
+  }) => void;
 };
 
 type InterServerEvents = {};
@@ -48,7 +53,7 @@ const io = new Server<
   SocketData
 >(server, { cors: { origin: true } });
 
-const samples: SocketData[] = [];
+let samples: SocketData[] = [];
 
 const logActiveConnections = async (io: Server<any>, ...args: any[]) => {
   const sockets = await io.fetchSockets();
@@ -58,26 +63,29 @@ const logActiveConnections = async (io: Server<any>, ...args: any[]) => {
 io.on("connection", async (socket) => {
   logActiveConnections(io, `(${socket.id} joined)`);
 
-  // socket.emit("catchup", history);
-
   socket.on("sample", (data) => {
-    const time = performance.now() / 1000;
-    let acceleration: Vec3 = [data.x || 0, data.y || 0, data.z || 0];
+    const time = data.timeStamp;
+    let acceleration: Vec3 = [
+      data.acceleration?.x || 0,
+      data.acceleration?.y || 0,
+      data.acceleration?.z || 0,
+    ];
     let velocity: Vec3 = [0, 0, 0];
     let position: Vec3 = [0, 0, 0];
 
     const previousSample = samples.at(-1);
     if (previousSample) {
-      const { time: previousTime, data: previousData } = previousSample;
-      const deltaT = time - previousTime;
+      const deltaT = (time - previousSample.time) / 1000;
 
-      velocity = previousData.velocity.map(
+      velocity = previousSample.data.velocity.map(
         (v, i) =>
-          v + deltaT * ((previousData.acceleration[i] + acceleration[i]) / 2)
+          v +
+          deltaT * ((previousSample.data.acceleration[i] + acceleration[i]) / 2)
       ) as Vec3;
 
-      position = previousData.position.map(
-        (v, i) => v + deltaT * ((previousData.velocity[i] + velocity[i]) / 2)
+      position = previousSample.data.position.map(
+        (v, i) =>
+          v + deltaT * ((previousSample.data.velocity[i] + velocity[i]) / 2)
       ) as Vec3;
     }
 
@@ -95,6 +103,8 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("disconnect", () => {
+    samples = [];
+    io.emit("catchup", samples);
     logActiveConnections(io, `(${socket.id} left)`);
   });
 });
